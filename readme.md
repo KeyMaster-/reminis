@@ -62,6 +62,8 @@ For a more complex pipeline, list the dependencies of processors that need them 
 
 See `dependencies_example.py` for a simple setup of a pipeline that uses explicit dependencies to reuse the output of one processor for the input of multiple other processors.
 
+Note that processor names must be unique: if the same processor function is reused in multiple processor nodes, you must give each processor (except one) a different name using the `name` property.
+
 ## Details
 `Proc` object
 
