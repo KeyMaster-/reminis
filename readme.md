@@ -87,6 +87,10 @@ Note that processor names must be unique: if the same processor function is reus
   Only Proc nodes appearing before this one in the pipeline can be referenced.  
   One element of this list can be -1, to reference the node immediately before this one in the pipeline.
 
+`calls`: list of functions
+> A list of functions called by `processor`.
+  Changes in the code of these functions will also invalidate this processor.
+
 `impure`: bool
 > If True, the function is always considered as changed, and thus re-computed every run.  
   Any dependents will consequently also re-run.

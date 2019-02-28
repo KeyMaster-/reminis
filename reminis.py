@@ -32,6 +32,10 @@ def compute(pipeline):
 #   Only Proc nodes appearing before this one in the pipeline can be referenced.
 #   One element of this list can be -1, to reference the node immediately before this one in the pipeline.
 #
+# calls: list of functions
+#   A list of functions called by `processor`.
+#   Changes in the code of these functions will also invalidate this processor.
+#
 # impure: bool
 #   If True, the function is always considered as changed, and thus re-computed every run.
 #   Any dependents will consequently also re-run.
@@ -47,6 +51,7 @@ class Proc:
     args: list = field(default_factory=list)
     name: str = None
     dependencies: list = None #list of names referencing previous Proc instances in pipeline
+    calls: list = field(default_factory=list)
     impure: bool = False
     no_caching: bool = False
 
@@ -70,6 +75,7 @@ class ProcessorNode:
     impure: bool
     no_caching: bool
     dependencies: list # list of ProcessorNode, but type can't refer to itself it seems
+    calls: list
     data: Any
     valid: bool
 
@@ -82,17 +88,21 @@ def get_path(node, meta):
 
     return caching_folder + node_name + ending
 
-def function_hash(function):
+    # compute a hash for a list of functions
+def functions_hash(functions):
     hasher = md5()
+
+    for f in functions:
         # bytecode does not change when only constants change, so it is not enough to detect function change
         # using the actual source is less efficient and is overly conservative, but it's better than missing changes
-    hasher.update(getsource(function).encode('utf-8'))
-    # hasher.update(function.__code__.co_code)
+        hasher.update(getsource(f).encode('utf-8'))
+
     return hasher.digest()
 
 def make_meta(node):
-    dep_hashes = [function_hash(dep.processor) for dep in node.dependencies]
-    src_hash = function_hash(node.processor)
+        # hashes of dependency functions are used to check that this node is still connnected to the same inputs
+    dep_hashes = [functions_hash([dep.processor]) for dep in node.dependencies]
+    src_hash = functions_hash([node.processor] + node.calls)
 
     return {
         "src_hash": src_hash,
@@ -287,7 +297,7 @@ def make_pipeline_tree(pipeline):
             if len(nodes) > 0:
                 dependencies.append(nodes[-1])
 
-        node = ProcessorNode(proc.processor, proc.args, get_node_name(proc), proc.impure, proc.no_caching, dependencies, None, None)
+        node = ProcessorNode(proc.processor, proc.args, get_node_name(proc), proc.impure, proc.no_caching, dependencies, proc.calls, None, None)
         nodes.append(node)
 
     return nodes[-1]
