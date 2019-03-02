@@ -46,6 +46,7 @@ However, if any processor has changed and its cached data has become invalid, it
 
 ## Usage
 The `compute` function takes a list of `Proc` objects, which describe the pipeline. It returns the output of the pipeline, doing as much caching as possible.
+The second parameter to `compute` is a flag that enables or disables all caching.
 
 Every `Proc` object contains the actual processor function that computes the data for this processor.  
 Optionally, it can contain:

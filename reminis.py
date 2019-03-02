@@ -6,10 +6,11 @@ from hashlib import md5
 from inspect import signature, getsource
 
 # pipeline: list of Proc objects
-def compute(pipeline):
+# do_caching: if false, disable all caching
+def compute(pipeline, do_caching=True):
     tree = make_pipeline_tree(pipeline)
 
-    return get_data(tree)
+    return get_data(tree, do_caching)
 
 ### Input processor class
 # processor: function
@@ -145,10 +146,14 @@ def run_processor(processor, args, inputs):
 
     return processor(*new_args)
 
-def gen_and_cache(node):
-    inputs = [get_data(dep) for dep in node.dependencies]
+def gen_and_cache(node, do_caching):
+    inputs = [get_data(dep, do_caching) for dep in node.dependencies]
 
     data = run_processor(node.processor, node.args, inputs)
+
+        # impure nodes don't even write metadata. if we are told to not cache, also don't write anything
+    if node.impure or not do_caching:
+        return data
     
     meta = make_meta(node)
     meta_path = get_path(node, True)
@@ -167,7 +172,10 @@ def gen_and_cache(node):
     f.close()
     return data
 
-def node_valid(node):
+def node_valid(node, do_caching):
+    if not do_caching:
+        return False
+
         # always treat impure nodes as invalid
     if node.impure:
         return False
@@ -179,7 +187,7 @@ def node_valid(node):
         # a node is only valid if dependencies are valid
     valid = True
     for dep in node.dependencies:
-        valid = valid and node_valid(dep)
+        valid = valid and node_valid(dep, do_caching)
 
     # print(f"{node.processor[0].__name__} / deps valid: {valid}")
 
@@ -216,8 +224,8 @@ def node_valid(node):
     node.valid = True
     return True
 
-def get_data(node):
-    valid = node_valid(node)
+def get_data(node, do_caching):
+    valid = node_valid(node, do_caching)
     # print(f"{node.processor[0].__name__} / not valid")
 
         # if we generated the data this run, it's definitely correct
@@ -241,7 +249,7 @@ def get_data(node):
         return data
 
         # no data found, or this node is invalid, so we need to generate it
-    data = gen_and_cache(node)
+    data = gen_and_cache(node, do_caching)
     node.data = data
 
     return data
